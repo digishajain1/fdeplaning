@@ -8,9 +8,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { initDatabase } from './db/init.js';
-import commentsRouter from './routes/comments.js';
-import commitmentsRouter from './routes/commitments.js';
+import { initDatabase } from './init.js';
+import commentsRouter from './comments.js';
+import commitmentsRouter from './commitments.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -103,7 +103,7 @@ app.use((err, req, res, next) => {
 
 // Serve static files in production
 if (isProd) {
-  const distPath = path.join(__dirname, '..', 'dist');
+  const distPath = path.join(__dirname, 'dist');
   app.use(express.static(distPath));
   
   // SPA fallback
