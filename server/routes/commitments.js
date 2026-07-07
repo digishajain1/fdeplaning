@@ -34,42 +34,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// PUT /api/commitments/:rowKey - Update owner/deadline for a row
-router.put('/:rowKey', async (req, res) => {
-  try {
-    const { ownerDeadline } = req.body;
-    const { rowKey } = req.params;
-    
-    if (ownerDeadline === undefined) {
-      return res.status(400).json({ error: 'ownerDeadline is required' });
-    }
-    
-    const db = await getDatabase();
-    
-    // Check if exists
-    const checkStmt = db.prepare('SELECT id FROM commitments WHERE row_key = ?');
-    checkStmt.bind([rowKey]);
-    const exists = checkStmt.step();
-    checkStmt.free();
-    if (!exists) {
-      return res.status(404).json({ error: 'Commitment row not found' });
-    }
-    
-    db.run(`
-      UPDATE commitments 
-      SET owner_deadline = ?, updated_at = datetime('now')
-      WHERE row_key = ?
-    `, [ownerDeadline, rowKey]);
-    
-    scheduleSave();
-    
-    res.json({ success: true, rowKey, ownerDeadline });
-  } catch (err) {
-    console.error('Error updating commitment:', err);
-    res.status(500).json({ error: 'Failed to update commitment' });
-  }
-});
-
 // GET /api/commitments/export - Export all data as structured JSON
 router.get('/export', async (req, res) => {
   try {
@@ -118,6 +82,42 @@ router.get('/export', async (req, res) => {
   } catch (err) {
     console.error('Error exporting data:', err);
     res.status(500).json({ error: 'Failed to export data' });
+  }
+});
+
+// PUT /api/commitments/:rowKey - Update owner/deadline for a row
+router.put('/:rowKey', async (req, res) => {
+  try {
+    const { ownerDeadline } = req.body;
+    const { rowKey } = req.params;
+    
+    if (ownerDeadline === undefined) {
+      return res.status(400).json({ error: 'ownerDeadline is required' });
+    }
+    
+    const db = await getDatabase();
+    
+    // Check if exists
+    const checkStmt = db.prepare('SELECT id FROM commitments WHERE row_key = ?');
+    checkStmt.bind([rowKey]);
+    const exists = checkStmt.step();
+    checkStmt.free();
+    if (!exists) {
+      return res.status(404).json({ error: 'Commitment row not found' });
+    }
+    
+    db.run(`
+      UPDATE commitments 
+      SET owner_deadline = ?, updated_at = datetime('now')
+      WHERE row_key = ?
+    `, [ownerDeadline, rowKey]);
+    
+    scheduleSave();
+    
+    res.json({ success: true, rowKey, ownerDeadline });
+  } catch (err) {
+    console.error('Error updating commitment:', err);
+    res.status(500).json({ error: 'Failed to update commitment' });
   }
 });
 

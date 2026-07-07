@@ -87,35 +87,30 @@ router.post('/', async (req, res) => {
       VALUES (?, ?, ?)
     `, [sectionId, text.trim(), authorVal]);
     
-    // Get the inserted row
+    // Get the inserted row ID
     const result = db.exec('SELECT last_insert_rowid() as id');
     const newId = result[0].values[0][0];
-    
-    const rowStmt = db.prepare('SELECT * FROM comments WHERE id = ?');
-    rowStmt.bind([newId]);
-    rowStmt.step();
-    const rowObj = rowStmt.getAsObject();
-    rowStmt.free();
-    const { id, section_id, text: newText, author: newAuthor, created_at } = rowObj;
+    const trimmedText = text.trim();
+    const now = new Date().toISOString();
     
     scheduleSave();
     
     const newComment = {
-      id,
-      sectionId: section_id,
-      text: newText,
-      author: newAuthor,
-      ts: new Date(created_at).getTime()
+      id: newId,
+      sectionId,
+      text: trimmedText,
+      author: authorVal,
+      ts: new Date(now).getTime()
     };
     
     // Broadcast to all connected clients
     broadcast('comment:created', newComment);
     
     res.status(201).json({
-      id,
-      text: newText,
-      author: newAuthor,
-      ts: new Date(created_at).getTime()
+      id: newId,
+      text: trimmedText,
+      author: authorVal,
+      ts: new Date(now).getTime()
     });
   } catch (err) {
     console.error('Error creating comment:', err);
@@ -126,13 +121,13 @@ router.post('/', async (req, res) => {
 // DELETE /api/comments/:id - Delete a comment
 router.delete('/:id', async (req, res) => {
   try {
-    const db = await getDatabase();
     const commentId = parseInt(req.params.id);
     
     if (isNaN(commentId)) {
       return res.status(400).json({ error: 'Invalid comment ID' });
     }
     
+    const db = await getDatabase();
     const checkStmt = db.prepare('SELECT id, section_id FROM comments WHERE id = ?');
     checkStmt.bind([commentId]);
     const hasRow = checkStmt.step();
