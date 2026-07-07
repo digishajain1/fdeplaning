@@ -47,8 +47,11 @@ router.put('/:rowKey', async (req, res) => {
     const db = await getDatabase();
     
     // Check if exists
-    const check = db.exec(`SELECT id FROM commitments WHERE row_key = '${rowKey}'`);
-    if (check.length === 0 || check[0].values.length === 0) {
+    const checkStmt = db.prepare('SELECT id FROM commitments WHERE row_key = ?');
+    checkStmt.bind([rowKey]);
+    const exists = checkStmt.step();
+    checkStmt.free();
+    if (!exists) {
       return res.status(404).json({ error: 'Commitment row not found' });
     }
     

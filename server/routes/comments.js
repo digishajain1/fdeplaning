@@ -91,8 +91,12 @@ router.post('/', async (req, res) => {
     const result = db.exec('SELECT last_insert_rowid() as id');
     const newId = result[0].values[0][0];
     
-    const newRow = db.exec(`SELECT * FROM comments WHERE id = ${newId}`);
-    const [id, section_id, newText, newAuthor, created_at] = newRow[0].values[0];
+    const rowStmt = db.prepare('SELECT * FROM comments WHERE id = ?');
+    rowStmt.bind([newId]);
+    rowStmt.step();
+    const rowObj = rowStmt.getAsObject();
+    rowStmt.free();
+    const { id, section_id, text: newText, author: newAuthor, created_at } = rowObj;
     
     scheduleSave();
     
@@ -125,13 +129,20 @@ router.delete('/:id', async (req, res) => {
     const db = await getDatabase();
     const commentId = parseInt(req.params.id);
     
-    // Get section_id before deleting (for broadcast)
-    const check = db.exec(`SELECT id, section_id FROM comments WHERE id = ${commentId}`);
-    if (check.length === 0 || check[0].values.length === 0) {
+    if (isNaN(commentId)) {
+      return res.status(400).json({ error: 'Invalid comment ID' });
+    }
+    
+    const checkStmt = db.prepare('SELECT id, section_id FROM comments WHERE id = ?');
+    checkStmt.bind([commentId]);
+    const hasRow = checkStmt.step();
+    const checkRow = hasRow ? checkStmt.getAsObject() : null;
+    checkStmt.free();
+    if (!checkRow) {
       return res.status(404).json({ error: 'Comment not found' });
     }
     
-    const sectionId = check[0].values[0][1];
+    const sectionId = checkRow.section_id;
     
     db.run(`DELETE FROM comments WHERE id = ?`, [commentId]);
     scheduleSave();
