@@ -52,9 +52,7 @@ export function broadcast(type, payload) {
 }
 
 // Security & performance middleware
-app.use(helmet({
-  contentSecurityPolicy: isProd ? undefined : false,
-}));
+app.use(helmet());
 app.use(compression());
 app.use(cors());
 app.use(morgan(isProd ? 'combined' : 'dev'));
@@ -65,6 +63,14 @@ const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP
   message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiter for static/SPA routes (more permissive)
+const staticLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -101,7 +107,7 @@ if (isProd) {
   app.use(express.static(distPath));
   
   // SPA fallback
-  app.get('*', (req, res) => {
+  app.get('*', staticLimiter, (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
