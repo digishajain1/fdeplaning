@@ -100,8 +100,12 @@ router.put('/:rowKey', async (req, res) => {
     // Check if exists
     const checkStmt = db.prepare('SELECT id FROM commitments WHERE row_key = ?');
     checkStmt.bind([rowKey]);
-    const exists = checkStmt.step();
-    checkStmt.free();
+    let exists = false;
+    try {
+      exists = checkStmt.step();
+    } finally {
+      checkStmt.free();
+    }
     if (!exists) {
       return res.status(404).json({ error: 'Commitment row not found' });
     }

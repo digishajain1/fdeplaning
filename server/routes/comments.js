@@ -52,16 +52,19 @@ router.get('/:sectionId', async (req, res) => {
     stmt.bind([req.params.sectionId]);
     
     const comments = [];
-    while (stmt.step()) {
-      const row = stmt.getAsObject();
-      comments.push({
-        id: row.id,
-        text: row.text,
-        author: row.author,
-        ts: new Date(row.created_at).getTime()
-      });
+    try {
+      while (stmt.step()) {
+        const row = stmt.getAsObject();
+        comments.push({
+          id: row.id,
+          text: row.text,
+          author: row.author,
+          ts: new Date(row.created_at).getTime()
+        });
+      }
+    } finally {
+      stmt.free();
     }
-    stmt.free();
     
     res.json(comments);
   } catch (err) {
@@ -130,9 +133,13 @@ router.delete('/:id', async (req, res) => {
     const db = await getDatabase();
     const checkStmt = db.prepare('SELECT id, section_id FROM comments WHERE id = ?');
     checkStmt.bind([commentId]);
-    const hasRow = checkStmt.step();
-    const checkRow = hasRow ? checkStmt.getAsObject() : null;
-    checkStmt.free();
+    let checkRow = null;
+    try {
+      const hasRow = checkStmt.step();
+      checkRow = hasRow ? checkStmt.getAsObject() : null;
+    } finally {
+      checkStmt.free();
+    }
     if (!checkRow) {
       return res.status(404).json({ error: 'Comment not found' });
     }
