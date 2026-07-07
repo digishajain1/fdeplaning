@@ -27,10 +27,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy built frontend and server
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/index.js ./index.js
-COPY --from=builder /app/comments.js ./comments.js
-COPY --from=builder /app/commitments.js ./commitments.js
-COPY --from=builder /app/init.js ./init.js
+COPY --from=builder /app/server ./server
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data
@@ -45,4 +42,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-CMD ["node", "index.js"]
+CMD ["node", "server/index.js"]

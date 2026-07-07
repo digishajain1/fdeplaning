@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "description": "FDE Strategic Session Meeting Artifact — Full Stack Application",
   "type": "module",
-  "main": "index.js",
+  "main": "server/index.js",
   "scripts": {
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
-    "server:dev": "node --watch index.js",
+    "server:dev": "node --watch server/index.js",
     "client:dev": "vite",
     "build": "vite build",
-    "start": "NODE_ENV=production node index.js",
+    "start": "NODE_ENV=production node server/index.js",
     "preview": "vite preview"
   },
   "dependencies": {
