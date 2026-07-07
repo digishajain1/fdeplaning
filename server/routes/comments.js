@@ -52,16 +52,19 @@ router.get('/:sectionId', async (req, res) => {
     stmt.bind([req.params.sectionId]);
     
     const comments = [];
-    while (stmt.step()) {
-      const row = stmt.getAsObject();
-      comments.push({
-        id: row.id,
-        text: row.text,
-        author: row.author,
-        ts: new Date(row.created_at).getTime()
-      });
+    try {
+      while (stmt.step()) {
+        const row = stmt.getAsObject();
+        comments.push({
+          id: row.id,
+          text: row.text,
+          author: row.author,
+          ts: new Date(row.created_at).getTime()
+        });
+      }
+    } finally {
+      stmt.free();
     }
-    stmt.free();
     
     res.json(comments);
   } catch (err) {
@@ -87,31 +90,30 @@ router.post('/', async (req, res) => {
       VALUES (?, ?, ?)
     `, [sectionId, text.trim(), authorVal]);
     
-    // Get the inserted row
+    // Get the inserted row ID
     const result = db.exec('SELECT last_insert_rowid() as id');
     const newId = result[0].values[0][0];
-    
-    const newRow = db.exec(`SELECT * FROM comments WHERE id = ${newId}`);
-    const [id, section_id, newText, newAuthor, created_at] = newRow[0].values[0];
+    const trimmedText = text.trim();
+    const now = new Date().toISOString();
     
     scheduleSave();
     
     const newComment = {
-      id,
-      sectionId: section_id,
-      text: newText,
-      author: newAuthor,
-      ts: new Date(created_at).getTime()
+      id: newId,
+      sectionId,
+      text: trimmedText,
+      author: authorVal,
+      ts: new Date(now).getTime()
     };
     
     // Broadcast to all connected clients
     broadcast('comment:created', newComment);
     
     res.status(201).json({
-      id,
-      text: newText,
-      author: newAuthor,
-      ts: new Date(created_at).getTime()
+      id: newId,
+      text: trimmedText,
+      author: authorVal,
+      ts: new Date(now).getTime()
     });
   } catch (err) {
     console.error('Error creating comment:', err);
@@ -122,16 +124,27 @@ router.post('/', async (req, res) => {
 // DELETE /api/comments/:id - Delete a comment
 router.delete('/:id', async (req, res) => {
   try {
-    const db = await getDatabase();
     const commentId = parseInt(req.params.id);
     
-    // Get section_id before deleting (for broadcast)
-    const check = db.exec(`SELECT id, section_id FROM comments WHERE id = ${commentId}`);
-    if (check.length === 0 || check[0].values.length === 0) {
+    if (isNaN(commentId)) {
+      return res.status(400).json({ error: 'Invalid comment ID' });
+    }
+    
+    const db = await getDatabase();
+    const checkStmt = db.prepare('SELECT id, section_id FROM comments WHERE id = ?');
+    checkStmt.bind([commentId]);
+    let checkRow = null;
+    try {
+      const hasRow = checkStmt.step();
+      checkRow = hasRow ? checkStmt.getAsObject() : null;
+    } finally {
+      checkStmt.free();
+    }
+    if (!checkRow) {
       return res.status(404).json({ error: 'Comment not found' });
     }
     
-    const sectionId = check[0].values[0][1];
+    const sectionId = checkRow.section_id;
     
     db.run(`DELETE FROM comments WHERE id = ?`, [commentId]);
     scheduleSave();

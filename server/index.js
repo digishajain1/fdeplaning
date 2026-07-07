@@ -8,9 +8,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { initDatabase } from './init.js';
-import commentsRouter from './comments.js';
-import commitmentsRouter from './commitments.js';
+import { initDatabase } from './db/init.js';
+import commentsRouter from './routes/comments.js';
+import commitmentsRouter from './routes/commitments.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -52,9 +52,7 @@ export function broadcast(type, payload) {
 }
 
 // Security & performance middleware
-app.use(helmet({
-  contentSecurityPolicy: isProd ? undefined : false,
-}));
+app.use(helmet());
 app.use(compression());
 app.use(cors());
 app.use(morgan(isProd ? 'combined' : 'dev'));
@@ -65,6 +63,14 @@ const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP
   message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiter for static/SPA routes (more permissive)
+const staticLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -97,11 +103,11 @@ app.use((err, req, res, next) => {
 
 // Serve static files in production
 if (isProd) {
-  const distPath = path.join(__dirname, 'dist');
+  const distPath = path.join(__dirname, '..', 'dist');
   app.use(express.static(distPath));
   
   // SPA fallback
-  app.get('*', (req, res) => {
+  app.get('*', staticLimiter, (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
