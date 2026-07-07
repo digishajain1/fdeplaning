@@ -84,16 +84,16 @@ router.post('/', async (req, res) => {
     
     const db = await getDatabase();
     const authorVal = (author || '').trim() || 'Anonymous';
+    const trimmedText = text.trim();
     
     db.run(`
       INSERT INTO comments (section_id, text, author)
       VALUES (?, ?, ?)
-    `, [sectionId, text.trim(), authorVal]);
+    `, [sectionId, trimmedText, authorVal]);
     
     // Get the inserted row ID
     const result = db.exec('SELECT last_insert_rowid() as id');
     const newId = result[0].values[0][0];
-    const trimmedText = text.trim();
     const now = new Date().toISOString();
     
     scheduleSave();
